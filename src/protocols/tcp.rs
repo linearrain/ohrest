@@ -9,16 +9,9 @@ use std::thread;
 // MEANING IT MUST BE A VALID ETHERNET II (WHICH IS CHECKED IN THE MAIN FUNCTION)
 // AND IT MUST BE A VALID IPV4 PACKET (CHECKING RIGHT BELOW)
 
-fn is_valid_ipv4(packet: &[u8]) -> bool {
-    if let Some(ipv4_packet) = pnet::packet::ipv4::Ipv4Packet::new(packet) {
-        return true;
-    }
-    false
-}
-
 pub fn check_and_get(packet : &[u8]) {
     if let Some(ether) = EthernetPacket::new(packet) {
-        if is_valid_ipv4(ether.payload()) { 
+        if let Some(ipv4_packet) = pnet::packet::ipv4::Ipv4Packet::new(packet) { 
             if let Some(tcp_packet) = pnet::packet::tcp::TcpPacket::new(ether.payload()) {
                 print_output(tcp_packet);
             }
