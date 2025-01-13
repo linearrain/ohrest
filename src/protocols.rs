@@ -153,4 +153,18 @@ mod tests {
         assert_eq!(w_ips.len(), 1);
         assert_eq!(w_protocols.len(), 7);
     }
+
+    #[test]
+    fn test_find_packets_alone() {
+        let params = vec![Parameters::Interface(vec!["lo".to_string()])];
+
+        find_packets(params);
+    }
+
+    #[test]
+    fn test_find_packets_all_interfaces() {
+        let params = vec![];
+
+        find_packets(params);
+    }
 }
