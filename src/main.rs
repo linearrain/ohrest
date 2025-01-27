@@ -1,4 +1,18 @@
 pub mod protocols;
+pub mod layers;
+
+fn get_color<'a>(color_code : u8) -> &'a str {
+    match color_code {
+        1 => "\x1b[1m",    // BOLD
+        2 => "\x1b[38;5;154m",  // Green-Yellow
+        3 => "\x1b[38;5;198m",  // Red
+        4 => "\x1b[38;5;147m",  // Blue
+        5 => "\x1b[38;5;226m",  // Yellow
+        6 => "\x1b[38;5;214m",  // Orange
+        7 => "\x1b[38;5;213m",  // Purple
+        _ => "\x1b[0m",    // RESET
+    }
+}
 
 fn print_program_name() {
     print!("\x1b[38;5;153m[OHREST / ОРЕСТ]\x1b[0m ");

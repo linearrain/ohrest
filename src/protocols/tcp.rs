@@ -1,9 +1,6 @@
-use pnet::datalink::{self, Channel};
 use pnet::packet::Packet;
-use pnet::packet::ethernet::EthernetPacket;
-use crate::protocols::{Parameters, consider_parameters};
-use std::thread;
-use crate::print_program_name;
+use crate::{print_program_name, get_color};
+use crate::layers::UpperProtocol;
 
 // ETH II -> IPv4 -> TCP
 
@@ -12,20 +9,20 @@ use crate::print_program_name;
 // MEANING IT MUST BE A VALID ETHERNET II (WHICH IS CHECKED IN THE MAIN FUNCTION)
 // AND IT MUST BE A VALID IPV4 PACKET (CHECKING RIGHT BELOW)
 
-pub fn check_and_get(packet : &[u8]) {
-    if let Some(ether) = EthernetPacket::new(packet) {
-        if let Some(ipv4_packet) = pnet::packet::ipv4::Ipv4Packet::new(packet) { 
-            if let Some(tcp_packet) = pnet::packet::tcp::TcpPacket::new(ether.payload()) {
-                print_output(tcp_packet);
-            }
-        }
+pub fn check_and_get_next_layer(packet : &[u8]) -> Option<(UpperProtocol, Vec<u8>)> {
+    if let Some(tcp) = pnet::packet::tcp::TcpPacket::new(packet) {
+        return Some((UpperProtocol::Layer3((tcp.get_destination(), tcp.get_source())),
+                tcp.payload().to_vec()))
     }
+
+    None
 }
 
-pub fn print_output(packet : pnet::packet::tcp::TcpPacket) {
+pub fn print_output(packet : &[u8]) {
+    let packet = pnet::packet::tcp::TcpPacket::new(packet).unwrap();
     print_program_name();
 
-    println!("TYPE: TCP PACKET");
+    println!("{}> > > > TCP PACKET{}", get_color(1), get_color(0));
     println!("Source port: {}   Destination port: {}", packet.get_source(), packet.get_destination());
     println!("Sequence number: {}   Ack number: {}", packet.get_sequence(), packet.get_acknowledgement());
     println!("Flags: {}   Window size: {}   Checksum: {}", packet.get_flags(), 

@@ -2,58 +2,62 @@ pub mod tcp;
 pub mod udp;
 pub mod ethernet;
 pub mod ipv4;
+pub mod ipv6;
 
 use std::sync::Arc;
 use pnet::datalink::{self, Channel};
 use std::thread;
 use pnet::datalink::NetworkInterface;
 use crate::{print_program_name, print_error};
+use crate::layers;
 
+// All the Available protocols
+// NEEDED FOR THE FILTERING, IF SPECIFIED IN ENV ARGUMENTS
 #[derive(Clone)]
 pub enum Protocol {
+    ETHERNET,
     IPv4,
     IPv6,
     TCP,
     UDP,
-    ICMP,
-    HTTP,
-    HTTPS,
-    UNKNOWN
+    //ICMP,
+    //HTTP,
+    //HTTPS,
 }
 
-pub fn check_protocol(protocol : Protocol, packet : &[u8]) {
-    match protocol {
-        Protocol::IPv4    => (),// check_ipv4(),
-        Protocol::IPv6    => (),// check_ipv6(),
-        Protocol::TCP     => tcp::check_and_get(packet),
-        Protocol::UDP     => udp::check_and_get(packet),
-        Protocol::ICMP    => (),// check_icmp(),
-        Protocol::HTTP    => (),// check_http(),
-        Protocol::HTTPS   => (),// check_https(),
-        Protocol::UNKNOWN => println!("[WARNING] Unknown protocol")
-    }
-}
 
-// FILTERING THE DATA ACCORDING TO THE INPUT
 
-enum Parameters {
+// PARAMETERS FOR THE PACKET FILTERING
+// NEEDED FOR STORING THE ENVIERONMENT ARGUMENTS
+// IN PRESENTABLE FORM FOR HUMAN EYE 
+
+enum Parameters { 
     IpAddress(Vec<String>),
     Port(Vec<u16>),
     Interface(Vec<String>),
     Protocol(Vec<Protocol>)
 }
 
-fn get_interfaces() -> Vec<NetworkInterface> {
-    pnet::datalink::interfaces()
-}
+
+
+// FUNCTION FOR BUILDING THE EASY PARSABLE DATA
+// TO LATER BE USED IN THE INDIVIDUAL PROTOCOL FUNCTIONS 
+// FOR THE PACKET FILTERING AND DISPLAYING
 
 fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Parameters>) ->
-                           (Vec<NetworkInterface>, Vec<u16>, Vec<String>, Vec<Protocol>) {
+                    (Vec<NetworkInterface>, Vec<u16>, Vec<String>, Vec<Protocol>) {
+
+    // THE VARIABLES FOR THE CURRENT DATA
+    // REPRESENTED IN VECTORS AS THE DATA IS NOT DRAMATICALLY BIG
+    // AND THE OVERHEAD WON'T BREAK THE SPEED AND EFFICIENCY
 
     let mut working_interfaces  : Vec<NetworkInterface> = Vec::new();
     let mut working_ports       : Vec<u16>              = Vec::new();
     let mut working_ips         : Vec<String>           = Vec::new();
     let mut specified_protocols : Vec<Protocol>         = Vec::new();
+
+    // EVERY SINGLE PARAMETER SHOULD BE SEPARATED IN APPROPRIATE VECTOR
+    // TO BE LATER USED ON THE FOLLOWING ETAPEE
 
     for param in params {
         match param {
@@ -84,11 +88,25 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
     (working_interfaces, working_ports, working_ips, specified_protocols)
 }
 
+fn filter_packets() {
+    // TODO:
+    // We need to filter the packets based on the parameters
+    // We have to traverse all the protocol variants available 
+    // to identify the packet nature
+    // Inside the TCP and UDP modules, we have to check the ports
+    // Inside the IPv4 and IPv6 modules, we have to check the IP addresses
+}
+
 fn find_packets(params: Vec<Parameters>) {
     // GETTING THE DEVICES AVAILABLE FOR THE PROGRAM
     let interfaces = datalink::interfaces();
 
-    let (w_interfaces, _w_ports, _w_ips, w_prot) = consider_parameters(interfaces, params);
+    print_program_name();
+    println!("LISTENING ON THE INTERFACES: {:?}", interfaces);
+
+    // TAKING ALL THE PARAMETERS TO WORK WITH INSIDE THE THREAD-LOOP
+
+    let (w_interfaces, w_ports, w_ips, w_prot) = consider_parameters(interfaces, params);
 
     // WAITING FOR EACH THREAD TO AVOID PREMATURE EXIT AND BUGS
 
@@ -96,10 +114,12 @@ fn find_packets(params: Vec<Parameters>) {
 
 
 
-    // BECAUSE OF WORKING WITH THREADS, WE NEED TO CLONE THE PROTOCOLS
+    // BECAUSE OF WORKING WITH THREADS, WE NEED TO CLONE THE PROTOCOLS, PORTS AND IP
     // TO ENSURE NO POINTER ISSUES WILL OCCUR DURING THE ANALYSIS
 
     let w_prot = Arc::new(w_prot);
+    let w_ports = Arc::new(w_ports);
+    let w_ips = Arc::new(w_ips);
 
     print_program_name();
     println!("OH, REST! OHREST IS CATCHING THE PACKETS");
@@ -112,6 +132,8 @@ fn find_packets(params: Vec<Parameters>) {
 
     for interface in w_interfaces {
         let w_prot = Arc::clone(&w_prot);
+        let w_ports = Arc::clone(&w_ports);
+        let w_ips = Arc::clone(&w_ips);
 
         // CREATING A THREAD FOR EACH INTERFACE
 
@@ -136,24 +158,22 @@ fn find_packets(params: Vec<Parameters>) {
             // NO PACKET LIMITATION, IT WILL LISTEN UNTIL THE PROGRAM IS STOPPED
 
             loop {
+                // EVERYTIME WE GET A PACKET, PROCEED
                 match rx.next() {
+
+                    // CASE NO ERROR OF READING
                     Ok(packet) => {
-                        println!("\x1b[1mPACKET #{}\x1b[0m", packet_id);
+                        println!("\n\n\x1b[1mPACKET #{}\x1b[0m, INTERFACE: {}", 
+                            packet_id, interface.name);
 
-                        // IN CASE NO PROTOCOLS ARE SPECIFIED, WE CHECK ALL OF THEM
-                        if w_prot.is_empty() {
+                        // CHECKING THE PACKET
+                        // IT IT MATCHES THE PROTOCOLS
+                        // PRINT IT OUT
 
-                            continue;
-                        }
-
-                        // IF THE PACKETS ARE SPECIFIED, WE CHECK ONLY THEM
-                        // CHECKING THE PROTOCOLS USING THE FUNCTIONS
-                        // INTENDED FOR EACH OF THEM DIRECTLY
-                        // IN CASE OF UNKNOWN PROTOCOL, WE PRINT A WARNING
-
-                        for protocol in &*w_prot {
-                            check_protocol(protocol.clone(), packet);
-                        }
+                       if layers::check_all_layers(packet, w_ips.to_vec(), w_ports.to_vec()).is_none() {
+                           println!("PACKET DOESN'T MATCH THE CRITERIA");
+                       }
+                        
                     },
                     Err(..) => {
                         print_error();
@@ -187,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_consider_parameters() {
-        let interfaces = get_interfaces();
+        let interfaces = datalink::interfaces();
         let params = vec![Parameters::Interface(vec!["lo".to_string()]),
                           Parameters::Port(vec![80, 32, 1]),
                           Parameters::IpAddress(vec!["127.0.0.1".to_string()])];
@@ -199,17 +219,10 @@ mod tests {
         assert_eq!(w_protocols.len(), 7);
     }
 
-    /*#[test]
-    fn test_find_packets_alone() {
-        let params = vec![Parameters::Interface(vec!["lo".to_string()])];
-
-        find_packets(params);
-    }
-
     #[test]
-    fn test_find_packets_all_interfaces() {
+    fn test_find_packets_alone() {
         let params = vec![];
 
         find_packets(params);
-    }*/
+    }
 }
