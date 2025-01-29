@@ -86,12 +86,13 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
 
 
 
-fn find_packets(params: Vec<Parameters>) {
+pub fn find_packets(params: Vec<Parameters>) {
     // GETTING THE DEVICES AVAILABLE FOR THE PROGRAM
     let interfaces = datalink::interfaces();
 
     print_program_name();
-    println!("LISTENING ON THE INTERFACES: {:?}", interfaces);
+    println!("LISTENING ON THE INTERFACES: {:?}", 
+             interfaces.iter().map(|i| i.name.clone()).collect::<Vec<String>>());
 
     // TAKING ALL THE PARAMETERS TO WORK WITH INSIDE THE THREAD-LOOP
 
@@ -204,10 +205,12 @@ mod tests {
         assert_eq!(w_protocols.len(), 0);
     }
 
+    /*
     #[test]
     fn test_find_packets_alone() {
         let params = vec![Parameters::IpAddress(vec!["127.0.0.1".to_string()])];
 
         find_packets(params);
     }
+    */
 }

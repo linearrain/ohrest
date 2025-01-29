@@ -1,12 +1,17 @@
 pub mod protocols;
 pub mod layers;
 pub mod filtering;
+pub mod io;
+
+use crate::io::interpret_parameters;
+use crate::protocols::find_packets;
 
 
 // PARAMETERS ENUM TO BE USED IN TWO PARTS:
 // 1. IN THE IO FUNCTION TO PARSE THE ARGUMENTS
 // 2. IN THE FILTERING FUNCTION TO FILTER THE PACKETS
 
+#[derive(Debug)]
 pub enum Parameters { 
     IpAddress(Vec<String>),
     Port(Vec<u16>),
@@ -23,14 +28,14 @@ pub enum Parameters {
 
 fn get_color<'a>(color_code : u8) -> &'a str {
     match color_code {
-        1 => "\x1b[1m",    // BOLD
+        1 => "\x1b[1m",         // BOLD
         2 => "\x1b[38;5;154m",  // Green-Yellow
         3 => "\x1b[38;5;198m",  // Red
         4 => "\x1b[38;5;147m",  // Blue
         5 => "\x1b[38;5;226m",  // Yellow
         6 => "\x1b[38;5;214m",  // Orange
         7 => "\x1b[38;5;213m",  // Purple
-        _ => "\x1b[0m",    // RESET
+        _ => "\x1b[0m",         // RESET
     }
 }
 
@@ -43,18 +48,8 @@ fn print_error() {
 }
 
 fn main() {
+    let args : Vec<String> = std::env::args().collect();
+    let parameters = interpret_parameters(&args);
 
+    find_packets(parameters);
 }
-
-// TO OPTIMIZE THE PROGRAM THE TWO POSSIBLE SCENARIOS WILL BE ANALYZED:
-    // 1. THE PROGRAM IS RUNNING WITHOUT ANY ARGUMENTS:
-        // IT MEANS THAT WE WON'T HAVE ANY CONSTRAINTS
-        // TO DISPLAY PROPERLY SUCH A PACKET AND DESCRIBE IT WE HAVE TO USE
-        // DOWN-TOP APPROACH, MEANING THAT WE HAVE TO CHECK THE ETHERNET FRAME
-        // FIRST, THEN THE IPV4, THEN OTHER PROTOCOLS
-    // 2. THE PROGRAM IS RUNNING WITH ARGUMENTS:
-        // IT MEANS THAT WE HAVE TO FILTER THE PACKETS ACCORDING TO THE ARGUMENTS
-        // WE HAVE TO CHECK IF THE INCOMING PACKET MATCHES THE CRITERIA BY
-        // COMPARING THE PACKET WITH TOP-LEVEL PROTOCOLS DIRECTLY
-        // EXMAPLE: IF TCP PACKET GOES ON, IT CHECKS ONLY IF ETHERNET, IPv4 AND TCP
-        // ARE VALID, NOT CHECKING THE OTHER TOP-LEVEL PROTOCOLS, AS IN THE FIRST CASE

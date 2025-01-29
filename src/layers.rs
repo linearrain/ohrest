@@ -7,8 +7,6 @@ use crate::Parameters;
 use pnet::packet::ethernet::EtherType;
 use pnet::packet::ethernet::EtherTypes;
 
-use crate::print_error;
-
 #[derive(Clone, Debug)]
 pub enum UpperProtocol {
     Layer1(EtherType),
@@ -118,10 +116,6 @@ struct Layer {
 impl Layer {
     fn create(protocol : Protocol, data : Vec<u8>) -> Layer {
         Layer { protocol, data }
-    }
-
-    fn contains(&self, protocol : Protocol) -> bool {
-        self.protocol == protocol
     }
 }
 
