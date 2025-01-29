@@ -152,14 +152,11 @@ fn find_packets(params: Vec<Parameters>) {
 
                     // CASE NO ERROR OF READING
                     Ok(packet) => {
-                        println!("\n\n\x1b[1mPACKET #{}\x1b[0m, INTERFACE: {}", 
-                            packet_id, interface.name);
-
                         // CHECKING THE PACKET
                         // IT IT MATCHES THE PROTOCOLS
                         // PRINT IT OUT
 
-                        layers::check_all_layers(packet, w_prot.to_vec(), 
+                        layers::check_all_layers(packet_id, &interface.name, packet, w_prot.to_vec(), 
                                                 w_ips.to_vec(), w_ports.to_vec())
                     },
 
@@ -209,8 +206,7 @@ mod tests {
 
     #[test]
     fn test_find_packets_alone() {
-        let params = vec![Parameters::Interface(vec!["wlo1".to_string()]),
-                          Parameters::Protocol(vec![Protocol::UDP])];
+        let params = vec![Parameters::IpAddress(vec!["127.0.0.1".to_string()])];
 
         find_packets(params);
     }
