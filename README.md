@@ -22,9 +22,9 @@ To run the scanning on ALL the interfaces to catch all the avaliable packets, ju
 
 ### Other arguments:
 
-**-pt, --port** - Port Number (do not exceed the 2^16)
-**-i**, **--ip** - IP Address (make sure to use the right form)
-**-p, --protocol** - Protocol name (available ones: tcp, udp, ipv4, ipv6)
+-**-pt, --port** - Port Number (do not exceed the 2^16)
+-**-i**, **--ip** - IP Address (make sure to use the right form)
+-**-p, --protocol** - Protocol name (available ones: tcp, udp, ipv4, ipv6)
 
 In case of inaccurate arguments, the program will write you about the mistake, at the same time, it will continue work normaly,
 but ignoring an incorrect part of arguments you have given.
