@@ -8,12 +8,16 @@ use std::sync::Arc;
 use pnet::datalink::{self, Channel};
 use std::thread;
 use pnet::datalink::NetworkInterface;
-use crate::{print_program_name, print_error};
+
+use crate::{Parameters, print_program_name, print_error};
 use crate::layers;
+
+
 
 // All the Available protocols
 // NEEDED FOR THE FILTERING, IF SPECIFIED IN ENV ARGUMENTS
-#[derive(Clone)]
+
+#[derive(Clone, PartialEq, Debug)]
 pub enum Protocol {
     ETHERNET,
     IPv4,
@@ -23,19 +27,6 @@ pub enum Protocol {
     //ICMP,
     //HTTP,
     //HTTPS,
-}
-
-
-
-// PARAMETERS FOR THE PACKET FILTERING
-// NEEDED FOR STORING THE ENVIERONMENT ARGUMENTS
-// IN PRESENTABLE FORM FOR HUMAN EYE 
-
-enum Parameters { 
-    IpAddress(Vec<String>),
-    Port(Vec<u16>),
-    Interface(Vec<String>),
-    Protocol(Vec<Protocol>)
 }
 
 
@@ -61,21 +52,26 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
 
     for param in params {
         match param {
-            Parameters::IpAddress(ip_address) => {
-                working_ips = ip_address;
+            Parameters::IpAddress(ips) => {
+                working_ips = ips;
             },
+
             Parameters::Port(ports) => {
                 working_ports = ports;
             },
+
             Parameters::Interface(interface_names) => {
                 working_interfaces = interfaces.iter()
                     .filter(|interface| interface_names.contains(&interface.name))
                     .map(|interface| interface.clone())
                     .collect();
             },
+
             Parameters::Protocol(protocols) => {
                 specified_protocols = protocols;
-            }
+            },
+
+            Parameters::NoParameter => (),
         }
     }
 
@@ -88,14 +84,7 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
     (working_interfaces, working_ports, working_ips, specified_protocols)
 }
 
-fn filter_packets() {
-    // TODO:
-    // We need to filter the packets based on the parameters
-    // We have to traverse all the protocol variants available 
-    // to identify the packet nature
-    // Inside the TCP and UDP modules, we have to check the ports
-    // Inside the IPv4 and IPv6 modules, we have to check the IP addresses
-}
+
 
 fn find_packets(params: Vec<Parameters>) {
     // GETTING THE DEVICES AVAILABLE FOR THE PROGRAM
@@ -131,7 +120,7 @@ fn find_packets(params: Vec<Parameters>) {
     // AS THEY ARE INDEPENDENT AND CAN BE ANALYZED SEPARATELY
 
     for interface in w_interfaces {
-        let w_prot = Arc::clone(&w_prot);
+        let w_prot  = Arc::clone(&w_prot);
         let w_ports = Arc::clone(&w_ports);
         let w_ips = Arc::clone(&w_ips);
 
@@ -170,11 +159,10 @@ fn find_packets(params: Vec<Parameters>) {
                         // IT IT MATCHES THE PROTOCOLS
                         // PRINT IT OUT
 
-                       if layers::check_all_layers(packet, w_ips.to_vec(), w_ports.to_vec()).is_none() {
-                           println!("PACKET DOESN'T MATCH THE CRITERIA");
-                       }
-                        
+                        layers::check_all_layers(packet, w_prot.to_vec(), 
+                                                w_ips.to_vec(), w_ports.to_vec())
                     },
+
                     Err(..) => {
                         print_error();
                         println!("SOME PACKET GOT CORRUPTED EITHER THE PROGRAM TREATS IT AS SUCH");
@@ -216,12 +204,13 @@ mod tests {
         assert_eq!(w_ints.len(), 1);
         assert_eq!(w_ports.len(), 3);
         assert_eq!(w_ips.len(), 1);
-        assert_eq!(w_protocols.len(), 7);
+        assert_eq!(w_protocols.len(), 0);
     }
 
     #[test]
     fn test_find_packets_alone() {
-        let params = vec![];
+        let params = vec![Parameters::Interface(vec!["wlo1".to_string()]),
+                          Parameters::Protocol(vec![Protocol::UDP])];
 
         find_packets(params);
     }

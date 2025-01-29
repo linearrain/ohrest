@@ -2,10 +2,14 @@
 
 use crate::protocols::Protocol;
 use crate::protocols::{ethernet, ipv4, ipv6, tcp, udp};
+use crate::Parameters;
+
 use pnet::packet::ethernet::EtherType;
 use pnet::packet::ethernet::EtherTypes;
 
-#[derive(Clone)]
+use crate::print_error;
+
+#[derive(Clone, Debug)]
 pub enum UpperProtocol {
     Layer1(EtherType),
     Layer2(u8),
@@ -13,19 +17,8 @@ pub enum UpperProtocol {
 }
 
 // RETURNING THE FUNCTION ACCORDING TO THE PROTOCOL REQUESTED WITHIN THE LAYER
-fn return_check_and_get(protocol : &Protocol) 
-                                -> fn(&[u8]) -> Option<(UpperProtocol, Vec<u8>)> {
 
-    match protocol {
-        Protocol::ETHERNET => ethernet::check_and_get_next_layer,
-        Protocol::IPv4     => ipv4::check_and_get_next_layer,
-        Protocol::IPv6     => ipv6::check_and_get_next_layer,
-        Protocol::TCP      => tcp::check_and_get_next_layer,
-        Protocol::UDP      => udp::check_and_get_next_layer,
-    }
-}
-
-fn return_print_output(protocol : &Protocol) -> fn(&[u8]) {
+fn return_print_output(protocol : &Protocol) -> fn(Vec<u8>) {
     match protocol {
         Protocol::ETHERNET => ethernet::print_output,
         Protocol::IPv4     => ipv4::print_output,
@@ -35,58 +28,51 @@ fn return_print_output(protocol : &Protocol) -> fn(&[u8]) {
     }
 }
 
-fn check_protocol(protocol : Protocol, packet : &[u8]) 
-                                -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
-
-
-    if let Some(protocol_data) = return_check_and_get(&protocol)(packet) {
-        // In case, that was the last layer
-        // We can print the output
-        // And return the protocol
-        return_print_output(&protocol)(packet);
-        return Some((protocol, protocol_data.0, protocol_data.1));
-    }
-
-    None
-}
-
 pub fn check_network_access_layer(packet : Vec<u8>) 
                                   -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
 
     let packet_array = packet.as_slice();
 
     // ETHERNET
-    if let Some(res) = check_protocol(Protocol::ETHERNET, packet_array) {
-        return Some(res);
+    if let Some(res) = ethernet::check_and_get_next_layer(packet_array, 
+                                                        Parameters::NoParameter) {
+        return Some((Protocol::ETHERNET, res.0, res.1));
     }
 
     None
 }
 
-pub fn check_network_layer(packet : Vec<u8>, current_protocol : UpperProtocol) 
+pub fn check_network_layer(packet : Vec<u8>, current_protocol : UpperProtocol, 
+                           ips : Vec<String>)
                                     -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
     let packet_array = packet.as_slice();
 
     // THERE ARE TWO PROTOCOLS SUPPORTED BY THE PROGRAM
     // IPv4 AND IPv6
+
     match current_protocol {
         UpperProtocol::Layer1(EtherTypes::Ipv4) => {
-            if let Some(res) = check_protocol(Protocol::IPv4, packet_array) {
-                return Some(res);
+            if let Some(res) = ipv4::check_and_get_next_layer(packet_array, 
+                                                    Parameters::IpAddress(ips)) {
+                return Some((Protocol::IPv4, res.0, res.1));
             }
         },
         UpperProtocol::Layer1(EtherTypes::Ipv6) => {
-            if let Some(res) = check_protocol(Protocol::IPv6, packet_array) {
-                return Some(res);
+            if let Some(res) = ipv6::check_and_get_next_layer(packet_array, 
+                                                    Parameters::IpAddress(ips)) {
+                return Some((Protocol::IPv6, res.0, res.1));
             }
         },
-        _ => (),
+        _ => println!("{:?}", current_protocol),
     }
 
+    print_error();
+    println!("NO NETWORK LAYER"); 
     None
 }
 
-pub fn check_transport_layer(packet : Vec<u8>, current_protocol : UpperProtocol) 
+pub fn check_transport_layer(packet : Vec<u8>, current_protocol : UpperProtocol,
+                             ports : Vec<u16>) 
                                       -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
     let packet_array = packet.as_slice();
 
@@ -94,50 +80,99 @@ pub fn check_transport_layer(packet : Vec<u8>, current_protocol : UpperProtocol)
 
     match current_protocol {
         UpperProtocol::Layer2(6) => {
-            if let Some(res) = check_protocol(Protocol::TCP, packet_array) {
-                return Some(res);
+            if let Some(res) = tcp::check_and_get_next_layer(packet_array, 
+                                                    Parameters::Port(ports)) {
+                return Some((Protocol::TCP, res.0, res.1));
             }
         },
         UpperProtocol::Layer2(17) => {
-            if let Some(res) = check_protocol(Protocol::UDP, packet_array) {
-                return Some(res);
+            if let Some(res) = udp::check_and_get_next_layer(packet_array, 
+                                                    Parameters::Port(ports)) {
+                return Some((Protocol::UDP, res.0, res.1));
             }
         },
-        _ => (),
+        _ => println!("NO TRANSPORT LAYER"),
     }
-
+    
     None
 }
 
-pub fn check_application_layer(packet : Vec<u8>, current_protocol : UpperProtocol) 
+pub fn check_application_layer(packet : Vec<u8>, _current_protocol : UpperProtocol) 
                                         -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
-    let packet_array = packet.as_slice();
+    let _packet_array = packet.as_slice();
 
     // APPLICATION LAYER IS NOT IMPLEMENTED YET
     None
 }
 
-pub fn check_all_layers(packet : &[u8], ips : Vec<String>, ports : Vec<u16>) -> Option<(Protocol, Vec<u8>)> {
-    let packet = packet.to_vec();
 
+
+// THE STRUCTURE, WHICH REPRESENTS THE CONCRETE LAYER OF THE PACKET
+// IT HOLDS THE PROTOCOL AND THE DATA, WHICH CORRESPONDS TO THE LAYER
+// TO CORRECTLY LATER CALL ALL THE PRINT FUNCTIONS AFTER CHECKING
+
+#[derive(Debug)]
+struct Layer {
+    protocol : Protocol,
+    data : Vec<u8>,
+}
+
+impl Layer {
+    fn create(protocol : Protocol, data : Vec<u8>) -> Layer {
+        Layer { protocol, data }
+    }
+}
+
+fn print_needed(layers : &Vec<Layer>) {
+    for layer in layers {
+        return_print_output(&layer.protocol)(layer.data.clone());
+    }
+}
+
+pub fn check_all_layers(packet : &[u8], protocols : Vec<Protocol>, ips : Vec<String>, 
+                                                                 ports : Vec<u16>) {
+    let packet            : Vec<u8>    = packet.to_vec();
+    let mut passed_layers : Vec<Layer> = Vec::new();
+
+    // IF THE ACCESS LAYER EXISTS AND IS VALID
+    let packet_cl = packet.clone();
     if let Some(res_access) = check_network_access_layer(packet) {
+        passed_layers.push(Layer::create(res_access.0, packet_cl.clone()));
 
         // IF THE ACCESS LAYER WAS VALID AND THE NEXT LAYER EXISTS
-        if let Some(res_network) = check_network_layer(res_access.2.clone(), res_access.1.clone()) {
+        if let Some(res_network) = check_network_layer(res_access.2.clone(), 
+                                                    res_access.1.clone(), ips) {
 
+            passed_layers.push(Layer::create(res_network.0, res_access.2.clone()));
+            
             // IF THE NETWORK LAYER WAS VALID AND THE NEXT LAYER EXISTS
-            if let Some(res_transport) = check_transport_layer(res_network.2.clone(), res_network.1.clone()) {
+            if let Some(res_transport) = check_transport_layer(res_network.2.clone(), 
+                                                    res_network.1.clone(), ports) {
+
+                passed_layers.push(Layer::create(res_transport.0, res_network.2.clone()));
 
                 // IF THE TRANSPORT LAYER WAS VALID AND THE NEXT LAYER EXISTS
-                if let Some(res_app) = check_application_layer(res_transport.2.clone(), res_transport.1.clone()) {
-                    return Some((res_app.0, res_app.2));
+                if let Some(res_app) = check_application_layer(res_transport.2.clone(), 
+                                                        res_transport.1.clone()) {
+                    passed_layers.push(Layer::create(res_app.0, 
+                                       res_transport.2.clone()));
+
                 }
-                return Some((res_transport.0, res_transport.2));
             }
-            return Some((res_network.0, res_network.2));
         }
-        return Some((res_access.0, res_access.2));
     }
-    None
-    
+
+    if protocols.is_empty() {
+        passed_layers.iter().for_each(|layer| {
+            return_print_output(&layer.protocol)(layer.data.clone());
+        });
+    }
+
+    for protocol in protocols {
+        passed_layers.iter().for_each(|layer| {
+            if layer.protocol == protocol {
+                print_needed(&passed_layers);
+            }
+        });
+    } 
 }

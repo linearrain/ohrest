@@ -1,24 +1,36 @@
 use pnet::packet::Packet;
 use pnet::packet::ipv6::Ipv6Packet;
-
 use crate::{print_program_name, get_color};
 use crate::layers::UpperProtocol;
+use crate::Parameters;
 
-pub fn check_and_get_next_layer(packet : &[u8]) -> Option<(UpperProtocol, Vec<u8>)> {
+use crate::filtering::{NetworkLayer, check_ips};
+
+impl NetworkLayer for Ipv6Packet<'_> {
+    fn get_source_dest(&self) -> (String, String) {
+        (self.get_source().to_string(), 
+        self.get_destination().to_string())
+    }
+}
+
+pub fn check_and_get_next_layer(packet : &[u8], ips: Parameters) 
+                                            -> Option<(UpperProtocol, Vec<u8>)> {
     if packet[0] >> 4 != 6 {
         return None
     }
 
     if let Some(ipv6_data) = Ipv6Packet::new(packet) {
-        return Some((UpperProtocol::Layer2(ipv6_data.get_next_header().0), 
+        if check_ips(&ipv6_data, ips) {
+            return Some((UpperProtocol::Layer2(ipv6_data.get_next_header().0), 
                 ipv6_data.payload().to_vec()));
+        }
     }
 
     None
 }
 
-pub fn print_output(packet : &[u8]) {
-    let packet = Ipv6Packet::new(packet).unwrap();
+pub fn print_output(packet : Vec<u8>) {
+    let packet = Ipv6Packet::new(&packet).unwrap();
 
     print_program_name();
 

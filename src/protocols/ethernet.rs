@@ -1,12 +1,14 @@
 use pnet::packet::Packet;
 use pnet::packet::ethernet::EthernetPacket;
-use pnet::packet::ethernet::EtherType;
 
 use crate::layers::UpperProtocol;
+use crate::Parameters;
 
 use crate::{print_program_name, get_color};
 
-pub fn check_and_get_next_layer(packet : &[u8]) -> Option<(UpperProtocol, Vec<u8>)> {
+pub fn check_and_get_next_layer(packet : &[u8], _p : Parameters) 
+                                            -> Option<(UpperProtocol, Vec<u8>)> {
+
     if let Some(ether) = EthernetPacket::new(packet) {
         return Some((UpperProtocol::Layer1(ether.get_ethertype()), 
                 ether.payload().to_vec()));
@@ -15,8 +17,8 @@ pub fn check_and_get_next_layer(packet : &[u8]) -> Option<(UpperProtocol, Vec<u8
     None
 }
 
-pub fn print_output(packet : &[u8]) {
-    let packet = EthernetPacket::new(packet).unwrap();
+pub fn print_output(packet : Vec<u8>) {
+    let packet = EthernetPacket::new(&packet).unwrap();
 
     print_program_name();
     println!("{}> ETHERNET INFORMATION{}", get_color(1), get_color(0)); 

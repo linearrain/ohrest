@@ -1,5 +1,25 @@
 pub mod protocols;
 pub mod layers;
+pub mod filtering;
+
+
+// PARAMETERS ENUM TO BE USED IN TWO PARTS:
+// 1. IN THE IO FUNCTION TO PARSE THE ARGUMENTS
+// 2. IN THE FILTERING FUNCTION TO FILTER THE PACKETS
+
+pub enum Parameters { 
+    IpAddress(Vec<String>),
+    Port(Vec<u16>),
+    Interface(Vec<String>),
+    Protocol(Vec<protocols::Protocol>),
+    NoParameter,
+}
+
+
+
+// FUNCTION FOR GETTING THE COLOR TO
+// BE USED IN THE PRINTING FUNCTIONS
+// OVER THE WHOLE PROGRAM
 
 fn get_color<'a>(color_code : u8) -> &'a str {
     match color_code {

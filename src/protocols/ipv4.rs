@@ -4,24 +4,40 @@
 use pnet::packet::Packet;
 use pnet::packet::ipv4::Ipv4Packet;
 use crate::{print_program_name, get_color};
-use crate::layers::UpperProtocol;
 
-pub fn check_and_get_next_layer(packet : &[u8]) -> Option<(UpperProtocol, Vec<u8>)> {
+use crate::layers::UpperProtocol;
+use crate::Parameters;
+
+use crate::filtering::{NetworkLayer, check_ips};
+
+impl NetworkLayer for Ipv4Packet<'_> {
+    fn get_source_dest(&self) -> (String, String) {
+        (self.get_source().to_string(), 
+        self.get_destination().to_string())
+    }
+}
+
+
+
+pub fn check_and_get_next_layer(packet : &[u8], ips : Parameters) 
+                                        -> Option<(UpperProtocol, Vec<u8>)> {
     if packet[0] >> 4 != 4 {
         return None;
     }
 
     if let Some(ipv4_packet) = Ipv4Packet::new(packet) {
-        return Some((UpperProtocol::Layer2(ipv4_packet.get_next_level_protocol().0), 
-                ipv4_packet.payload().to_vec()));
+        if check_ips(&ipv4_packet, ips) {
+            return Some((UpperProtocol::Layer2(ipv4_packet.get_next_level_protocol().0), 
+                        ipv4_packet.payload().to_vec()));
+        }
     }
 
     None
 }
 
-pub fn print_output(packet : &[u8]) {
+pub fn print_output(packet : Vec<u8>) {
     // Getting the Ipv4Packet from the payload
-    let packet = Ipv4Packet::new(packet).unwrap();
+    let packet = Ipv4Packet::new(&packet).unwrap();
     print_program_name();
 
     println!("{}> > > IPV4 INFORMATION{}", get_color(1), get_color(0));
@@ -59,6 +75,6 @@ mod test {
                       0x00, 0x00, 0x00, 0x00, 0x86, 0x07, 0x39, 0xff, 0x50, 0x14, 
                       0x00, 0x00, 0x10, 0x99, 0x00, 0x00];
 
-        check_and_get_next_layer(&packet);
+        assert!(check_and_get_next_layer(&packet, Parameters::NoParameter).is_some());
     }
 }
