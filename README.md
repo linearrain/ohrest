@@ -28,5 +28,9 @@ To run the scanning on ALL the interfaces to catch all the avaliable packets, ju
 
 -**-p, --protocol** - Protocol name (available ones: tcp, udp, ipv4, ipv6)
 
-In case of inaccurate arguments, the program will write you about the mistake, at the same time, it will continue work normaly,
-but ignoring an incorrect part of arguments you have given.
+**Example:** My love to IPv6 is totally understandable, so let we find some IPv6 packets with IPs 127.0.0.1:
+
+```sudo ./ohrest -p ipv6 -ip 127.0.0.1``` 
+
+In case of inaccurate arguments, the program will write you about the mistake, at the same time, it will continue work normally,
+but ignoring an incorrect part of the given arguments.
