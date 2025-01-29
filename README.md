@@ -30,9 +30,7 @@ To run the scanning on ALL the interfaces to catch all the avaliable packets, ju
 
 **Example:** My love to IPv6 is totally understandable, so let we find some IPv6 packets:
 
-```sudo ./ohrest -p ipv6``` 
-
-\n
+```sudo ./ohrest -p ipv6```   
 
 In case of inaccurate arguments, the program will write you about the mistake, at the same time, it will continue work normally,
 but ignoring an incorrect part of the given arguments.
