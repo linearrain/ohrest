@@ -16,7 +16,7 @@ You can REST while it tries to find the packets you have requested and print in 
 **IMPORTANT**: The usage should be performed in sudo mode in case you are using UNIX-family systems, otherwise the program will
 simply panic due to failure of getting the right permission on your hardware.
 
-To run the scanning on ALL the interfaces to catch all the avaliable packets, just run:
+To run the scanning on ALL the interfaces to catch all the available packets, just run:
 
 ```sudo ./ohrest```
 
