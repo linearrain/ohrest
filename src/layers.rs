@@ -1,7 +1,7 @@
 // THE FILE MADE FOR DIFFERENT LAYERS OF TCP/IP STACK
 
 use crate::protocols::Protocol;
-use crate::protocols::{ethernet, ipv4, ipv6, tcp, udp};
+use crate::protocols::{ethernet, ipv4, ipv6, tcp, udp, arp};
 use crate::Parameters;
 
 use pnet::packet::ethernet::EtherType;
@@ -23,6 +23,7 @@ fn return_print_output(protocol : &Protocol) -> fn(Vec<u8>) {
         Protocol::IPv6     => ipv6::print_output,
         Protocol::TCP      => tcp::print_output,
         Protocol::UDP      => udp::print_output,
+        Protocol::ARP      => arp::print_output,
     }
 }
 
@@ -41,7 +42,7 @@ pub fn check_network_access_layer(packet : Vec<u8>)
 }
 
 pub fn check_network_layer(packet : Vec<u8>, current_protocol : UpperProtocol, 
-                           ips : &Vec<String>)
+                           ips : &Vec<String>, arp_op : Option<u16>)
                                     -> Option<(Protocol, UpperProtocol, Vec<u8>)> {
     let packet_array = packet.as_slice();
 
@@ -59,6 +60,12 @@ pub fn check_network_layer(packet : Vec<u8>, current_protocol : UpperProtocol,
             if let Some(res) = ipv6::check_and_get_next_layer(packet_array, 
                                                     Parameters::IpAddress(ips.to_vec())) {
                 return Some((Protocol::IPv6, res.0, res.1));
+            }
+        },
+        UpperProtocol::Layer1(EtherTypes::Arp) => {
+            if let Some(res) = arp::check_and_get_next_layer(packet_array, 
+                                                    Parameters::ArpOperation(arp_op)) {
+                return Some((Protocol::ARP, res.0, res.1));
             }
         },
         _ => (),
@@ -126,7 +133,8 @@ fn print_needed(layers : &Vec<Layer>) {
 }
 
 pub fn check_all_layers(packet_id : usize, int_name : &str, packet : &[u8], 
-                        protocols : Vec<Protocol>, ips : Vec<String>, ports : Vec<u16>) {
+                        protocols : Vec<Protocol>, ips : Vec<String>, ports : Vec<u16>, 
+                        arp_op : Option<u16>) {
 
     let packet            : Vec<u8>    = packet.to_vec();
     let mut passed_layers : Vec<Layer> = Vec::new();
@@ -138,7 +146,7 @@ pub fn check_all_layers(packet_id : usize, int_name : &str, packet : &[u8],
 
         // IF THE ACCESS LAYER WAS VALID AND THE NEXT LAYER EXISTS
         if let Some(res_network) = check_network_layer(res_access.2.clone(), 
-                                                    res_access.1.clone(), &ips) {
+                                                    res_access.1.clone(), &ips, arp_op) {
 
             passed_layers.push(Layer::create(res_network.0, res_access.2.clone()));
             

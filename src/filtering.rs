@@ -41,3 +41,17 @@ pub fn check_ports(source : u16, dest : u16, p : Parameters) -> bool {
 
     false
 }
+
+pub fn check_arp_operation(current_op_code : u16, p : Parameters) -> bool {
+    match p {
+        Parameters::ArpOperation(op) => {
+            if op.is_none() {
+                return true;
+            }
+
+            current_op_code == op.unwrap()
+        },
+        Parameters::NoParameter => return true,
+        _ => panic!("CODE ERROR: ARP OPERATION IS ONLY ALLOWED IN NETWORK ACCESS LAYER"),
+    }
+}

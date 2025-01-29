@@ -17,6 +17,7 @@ pub enum Parameters {
     Port(Vec<u16>),
     Interface(Vec<String>),
     Protocol(Vec<protocols::Protocol>),
+    ArpOperation(Option<u16>),
     NoParameter,
 }
 

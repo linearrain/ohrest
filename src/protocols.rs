@@ -3,6 +3,7 @@ pub mod udp;
 pub mod ethernet;
 pub mod ipv4;
 pub mod ipv6;
+pub mod arp;
 
 use std::sync::Arc;
 use pnet::datalink::{self, Channel};
@@ -24,6 +25,7 @@ pub enum Protocol {
     IPv6,
     TCP,
     UDP,
+    ARP,
     //ICMP,
     //HTTP,
     //HTTPS,
@@ -36,7 +38,7 @@ pub enum Protocol {
 // FOR THE PACKET FILTERING AND DISPLAYING
 
 fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Parameters>) ->
-                    (Vec<NetworkInterface>, Vec<u16>, Vec<String>, Vec<Protocol>) {
+                    (Vec<NetworkInterface>, Vec<u16>, Vec<String>, Vec<Protocol>, Option<u16>) {
 
     // THE VARIABLES FOR THE CURRENT DATA
     // REPRESENTED IN VECTORS AS THE DATA IS NOT DRAMATICALLY BIG
@@ -46,6 +48,7 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
     let mut working_ports       : Vec<u16>              = Vec::new();
     let mut working_ips         : Vec<String>           = Vec::new();
     let mut specified_protocols : Vec<Protocol>         = Vec::new();
+    let mut operation_arp       : Option<u16> = None;
 
     // EVERY SINGLE PARAMETER SHOULD BE SEPARATED IN APPROPRIATE VECTOR
     // TO BE LATER USED ON THE FOLLOWING ETAPEE
@@ -71,6 +74,10 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
                 specified_protocols = protocols;
             },
 
+            Parameters::ArpOperation(op) => {
+                operation_arp = op;
+            },
+
             Parameters::NoParameter => (),
         }
     }
@@ -81,7 +88,8 @@ fn consider_parameters(interfaces : Vec<NetworkInterface>, params : Vec<Paramete
         working_interfaces = interfaces;
     }
 
-    (working_interfaces, working_ports, working_ips, specified_protocols)
+    (working_interfaces, working_ports, working_ips, specified_protocols, 
+     operation_arp)
 }
 
 
@@ -96,7 +104,7 @@ pub fn find_packets(params: Vec<Parameters>) {
 
     // TAKING ALL THE PARAMETERS TO WORK WITH INSIDE THE THREAD-LOOP
 
-    let (w_interfaces, w_ports, w_ips, w_prot) = consider_parameters(interfaces, params);
+    let (w_interfaces, w_ports, w_ips, w_prot, op) = consider_parameters(interfaces, params);
 
     // WAITING FOR EACH THREAD TO AVOID PREMATURE EXIT AND BUGS
 
@@ -107,9 +115,10 @@ pub fn find_packets(params: Vec<Parameters>) {
     // BECAUSE OF WORKING WITH THREADS, WE NEED TO CLONE THE PROTOCOLS, PORTS AND IP
     // TO ENSURE NO POINTER ISSUES WILL OCCUR DURING THE ANALYSIS
 
-    let w_prot = Arc::new(w_prot);
+    let w_prot  = Arc::new(w_prot);
     let w_ports = Arc::new(w_ports);
-    let w_ips = Arc::new(w_ips);
+    let w_ips   = Arc::new(w_ips);
+    let w_op    = Arc::new(op);
 
     print_program_name();
     println!("OH, REST! OHREST IS CATCHING THE PACKETS");
@@ -123,7 +132,8 @@ pub fn find_packets(params: Vec<Parameters>) {
     for interface in w_interfaces {
         let w_prot  = Arc::clone(&w_prot);
         let w_ports = Arc::clone(&w_ports);
-        let w_ips = Arc::clone(&w_ips);
+        let w_ips   = Arc::clone(&w_ips);
+        let w_op    = Arc::clone(&w_op);
 
         // CREATING A THREAD FOR EACH INTERFACE
 
@@ -158,7 +168,7 @@ pub fn find_packets(params: Vec<Parameters>) {
                         // PRINT IT OUT
 
                         layers::check_all_layers(packet_id, &interface.name, packet, w_prot.to_vec(), 
-                                                w_ips.to_vec(), w_ports.to_vec())
+                                                w_ips.to_vec(), w_ports.to_vec(), *w_op);
                     },
 
                     Err(..) => {

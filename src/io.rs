@@ -28,6 +28,7 @@ fn protocols_parse(args : &[String], position : &mut usize) -> Vec<Protocol> {
             "ipv6" => protocols.push(Protocol::IPv6),
             "tcp"  => protocols.push(Protocol::TCP),
             "udp"  => protocols.push(Protocol::UDP),
+            "arp"  => protocols.push(Protocol::ARP),
             _ => {
                 print_error(); 
                 println!("INVALID PROTOCOL '{}'", args[*position]);
@@ -98,6 +99,22 @@ fn port_parse(args : &[String], position : &mut usize) -> Vec<u16> {
     ports
 }
 
+fn arp_op_parse(args : &[String], position : &mut usize) -> Option<u16> {
+    if !incr_and_not_exceed(position, args) {
+        print_error();
+        println!("NO ARP OPERATION SPECIFIED");
+        return None;
+    }
+
+    if let Ok(op) = args[*position].parse::<u16>() {
+        return Some(op);
+    }
+    
+    print_error();
+    println!("INVALID ARP OPERATION CODE '{}'", args[*position]);
+    None
+}
+
 pub fn interpret_parameters(args : &[String]) -> Vec<Parameters> {
     let mut parameters : Vec<Parameters> = Vec::new();
 
@@ -111,6 +128,7 @@ pub fn interpret_parameters(args : &[String]) -> Vec<Parameters> {
                                                                 (args, &mut position))),
             "-pt" | "--port"     => parameters.push(Parameters::Port(port_parse
                                                                 (args, &mut position))),
+            "-ao" | "--arp-operation" => parameters.push(Parameters::ArpOperation(arp_op_parse(args, &mut position))),
             _ => position += 1
         }
     }
